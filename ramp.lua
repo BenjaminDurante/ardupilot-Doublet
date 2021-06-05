@@ -4,6 +4,7 @@
 local DOUBLET_ACTION_CHANNEL = 6 -- RCIN channel to start a doublet when high (>1700)
 local DOUBLET_CHOICE_CHANNEL1 = 7 -- RCIN channel to choose elevator (low) or rudder (medium) or other (high)
 local DOUBLET_CHOICE_CHANNEL2 = 5 -- RCIN channel to choose aileron (low) or throttle (medium) or other (high)
+local DOUBLET_CHOICE_CHANNEL3 = 9 -- RCIN channel to choose doublet (low) or ramp (high)
 local DOUBLET_FUNCTION = 19 -- which control surface (SERVOx_FUNCTION) number will have a doublet happen
 -- A (Servo 1, Function 4), E (Servo 2, Function 19), and R (Servo 4, Function 21)
 local DOUBLET_MAGNITUDE = 6 -- defined out of 45 deg used for set_output_scaled
@@ -59,6 +60,7 @@ function doublet()
             -- are we doing a doublet on elevator or rudder? set the other controls to trim
             local doublet_choice_pwm1 = rc:get_pwm(DOUBLET_CHOICE_CHANNEL1)
             local doublet_choice_pwm2 = rc:get_pwm(DOUBLET_CHOICE_CHANNEL2)
+            local doublet_choice_pwm3 = rc:get_pwm(DOUBLET_CHOICE_CHANNEL3)
             local trim_funcs = {}
             local pre_doublet_elevator = SRV_Channels:get_output_pwm(K_ELEVATOR)
             local pre_doublet_throttle = SRV_Channels:get_output_pwm(K_THROTTLE)
@@ -125,28 +127,71 @@ function doublet()
             retry_set_mode(MODE_MANUAL)
         end
         
-        -- split time evenly between high and low signal
-        if now < start_time + (DOUBLET_TIME / 2) then
-            down = doublet_srv_trim - math.floor((doublet_srv_trim - doublet_srv_min) * (DOUBLET_MAGNITUDE / 45))
-            SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, down, DOUBLET_TIME / 2 + 100)
-        elseif now < start_time + DOUBLET_TIME then
-            up = doublet_srv_trim + math.floor((doublet_srv_max - doublet_srv_trim) * (DOUBLET_MAGNITUDE / 45))
-            SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, up, DOUBLET_TIME / 2 + 100)
-        elseif now < start_time + (DOUBLET_TIME * 2) then
-            -- stick fixed at pre doublet trim position
-            SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, doublet_srv_trim, DOUBLET_TIME * 2)
-        elseif (now > start_time + (DOUBLET_TIME * 2)) and (now < start_time + (DOUBLET_TIME * 2) + callback_time) then
-            -- notify GCS
-            gcs:send_text(6, "DOUBLET FINISHED")
-        elseif (now > start_time + (DOUBLET_TIME * 2) + callback_time) and (now < start_time + (DOUBLET_TIME * OBSERVATION_TIME)) then
-            -- do nothing until recording is complete
-        elseif now > start_time + (DOUBLET_TIME * OBSERVATION_TIME) then
-            -- wait for RC input channel to go low
-            end_time = now
-            gcs:send_text(6, "DOUBLET OBSERVATION FINISHED")
-        else
-            gcs:send_text(6, "this should not be reached")
+        if doublet_choice_pwm3 < 1700 then
+            -- split time evenly between high and low signal
+            if now < start_time + (DOUBLET_TIME / 2) then
+                down = doublet_srv_trim - math.floor((doublet_srv_trim - doublet_srv_min) * (DOUBLET_MAGNITUDE / 45))
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, down, DOUBLET_TIME / 2 + 100)
+            elseif now < start_time + DOUBLET_TIME then
+                up = doublet_srv_trim + math.floor((doublet_srv_max - doublet_srv_trim) * (DOUBLET_MAGNITUDE / 45))
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, up, DOUBLET_TIME / 2 + 100)
+            elseif now < start_time + (DOUBLET_TIME * 2) then
+                -- stick fixed at pre doublet trim position
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, doublet_srv_trim, DOUBLET_TIME * 2)
+            elseif (now > start_time + (DOUBLET_TIME * 2)) and (now < start_time + (DOUBLET_TIME * 2) + callback_time) then
+                -- notify GCS
+                gcs:send_text(6, "DOUBLET FINISHED")
+            elseif (now > start_time + (DOUBLET_TIME * 2) + callback_time) and (now < start_time + (DOUBLET_TIME * OBSERVATION_TIME)) then
+                -- do nothing until recording is complete
+            elseif now > start_time + (DOUBLET_TIME * OBSERVATION_TIME) then
+                -- wait for RC input channel to go low
+                end_time = now
+                gcs:send_text(6, "DOUBLET OBSERVATION FINISHED")
+            else
+                gcs:send_text(6, "this should not be reached")
+            end
+        elseif doublet_choice_pwm3 > 1700 then
+            -- split time evenly between high and low signal
+            if now < start_time + (DOUBLET_TIME / 2) then
+                down = doublet_srv_trim - math.floor((doublet_srv_trim - doublet_srv_min) * (DOUBLET_MAGNITUDE / 45))
+                going_down = down 
+
+
+
+
+
+
+
+
+
+
+
+                
+
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, down, DOUBLET_TIME / 2 + 100)
+
+            elseif now < start_time + DOUBLET_TIME then
+                up = doublet_srv_trim + math.floor((doublet_srv_max - doublet_srv_trim) * (DOUBLET_MAGNITUDE / 45))
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, up, DOUBLET_TIME / 2 + 100)
+
+            elseif now < start_time + (DOUBLET_TIME * 2) then
+                -- stick fixed at pre doublet trim position
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, doublet_srv_trim, DOUBLET_TIME * 2)
+
+            elseif (now > start_time + (DOUBLET_TIME * 2)) and (now < start_time + (DOUBLET_TIME * 2) + callback_time) then
+                -- notify GCS
+                gcs:send_text(6, "DOUBLET FINISHED")
+            elseif (now > start_time + (DOUBLET_TIME * 2) + callback_time) and (now < start_time + (DOUBLET_TIME * OBSERVATION_TIME)) then
+                -- do nothing until recording is complete
+            elseif now > start_time + (DOUBLET_TIME * OBSERVATION_TIME) then
+                -- wait for RC input channel to go low
+                end_time = now
+                gcs:send_text(6, "DOUBLET OBSERVATION FINISHED")
+            else
+                gcs:send_text(6, "this should not be reached")
+            end
         end
+        
 
         
     
