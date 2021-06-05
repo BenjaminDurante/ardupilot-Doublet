@@ -7,6 +7,7 @@ local DOUBLET_FUNCTION = 19 -- which control surface (SERVOx_FUNCTION) number wi
 -- A (Servo 1, Function 4), E (Servo 2, Function 19), and R (Servo 4, Function 21)
 local DOUBLET_MAGNITUDE = 6 -- defined out of 45 deg used for set_output_scaled
 local DOUBLET_TIME = 500 -- period of doublet signal in ms
+local OBSERVATION_TIME = 5 -- multiple of the doublet time to hold other deflections constant
 
 
 -- flight mode numbers for plane https://mavlink.io/en/messages/ardupilotmega.html
@@ -86,14 +87,14 @@ function doublet()
             for i = 1, #trim_funcs do
                 local trim_chan = SRV_Channels:find_channel(trim_funcs[i])
                 local trim_pwm = param:get("SERVO" .. trim_chan + 1 .. "_TRIM")
-                SRV_Channels:set_output_pwm_chan_timeout(trim_chan, trim_pwm, DOUBLET_TIME * 2)
+                SRV_Channels:set_output_pwm_chan_timeout(trim_chan, trim_pwm, DOUBLET_TIME * OBSERVATION_TIME)
             end
             -- get the current throttle PWM and pin it there until the doublet is done
             local pre_doublet_throttle = SRV_Channels:get_output_pwm(K_THROTTLE)
             SRV_Channels:set_output_pwm_chan_timeout(
                 SRV_Channels:find_channel(K_THROTTLE),
                 pre_doublet_throttle,
-                DOUBLET_TIME * 3
+                DOUBLET_TIME * OBSERVATION_TIME
             )
             -- enter manual mode
             retry_set_mode(MODE_MANUAL)
@@ -109,15 +110,20 @@ function doublet()
         elseif now < start_time + (DOUBLET_TIME * 2) then
             -- stick fixed at pre doublet trim position
             SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, doublet_srv_trim, DOUBLET_TIME * 2)
-        elseif now > start_time + (DOUBLET_TIME * 2) then
+        elseif (now > start_time + (DOUBLET_TIME * 2)) and (now < start_time + (DOUBLET_TIME * 2) + callback_time) then
             -- notify GCS
-            end_time = now
             gcs:send_text(6, "DOUBLET FINISHED")
+        elseif (now > start_time + (DOUBLET_TIME * 2) + callback_time) and (now < start_time + (DOUBLET_TIME * OBSERVATION_TIME)) then
+            -- do nothing until recording is complete
+        elseif now > start_time + (DOUBLET_TIME * OBSERVATION_TIME) then
+            -- wait for RC input channel to go low
+            end_time = now
+            gcs:send_text(6, "DOUBLET OBSERVATION FINISHED")
         else
             gcs:send_text(6, "this should not be reached")
         end
     
-    elseif end_time ~= -1 and rc:get_pwm(DOUBLET_ACTION_CHANNEL) > 1700 then -- observation time
+    elseif end_time ~= -1 and rc:get_pwm(DOUBLET_ACTION_CHANNEL) > 1700 then -- interlude time
         -- wait for RC input channel to go low
         gcs:send_text(6, "RC" .. DOUBLET_ACTION_CHANNEL .. " still high")
         callback_time = 1000 -- prevents spamming messages to the GCS
@@ -138,7 +144,7 @@ function doublet()
     
     elseif now ~= -1 then -- emergency recovery
         -- stopped before finishing. recover to level attitude
-        gcs:send_text(6, "FBWA RECOVER")
+        gcs:send_text(4, "FBWA RECOVER")
         now = -1
         end_time = -1
         start_time = -1
