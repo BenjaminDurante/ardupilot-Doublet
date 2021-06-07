@@ -7,8 +7,8 @@ local DOUBLET_CHOICE_CHANNEL2 = 5 -- RCIN channel to choose aileron (low) or thr
 local DOUBLET_FUNCTION = 19 -- which control surface (SERVOx_FUNCTION) number will have a doublet happen
 -- A (Servo 1, Function 4), E (Servo 2, Function 19), and R (Servo 4, Function 21)
 local DOUBLET_MAGNITUDE = 6 -- defined out of 45 deg used for set_output_scaled
-local DOUBLET_TIME = 500 -- period of doublet signal in ms
-local OBSERVATION_TIME = 5 -- multiple of the doublet time to hold other deflections constant
+local DOUBLET_TIME = 5000 -- period of doublet signal in ms
+local OBSERVATION_TIME = 6 -- multiple of the doublet time to hold other deflections constant
 
 
 -- flight mode numbers for plane https://mavlink.io/en/messages/ardupilotmega.html
@@ -74,21 +74,21 @@ function doublet()
                 trim_funcs = {K_AILERON}
                 DOUBLET_MAGNITUDE = 15
                 -- pin elevator to current position. This is most likely different than the _TRIM value
-                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVATOR), pre_doublet_elevator, DOUBLET_TIME * 4)
+                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVATOR), pre_doublet_elevator, DOUBLET_TIME * OBSERVATION_TIME)
             elseif doublet_choice_pwm1 > 1700 and doublet_choice_pwm2 < 1300 then
                 -- doublet on aileron
                 DOUBLET_FUNCTION = K_AILERON
                 trim_funcs = {K_RUDDER}
                 DOUBLET_MAGNITUDE = 5
                 -- pin elevator to current position. This is most likely different than the _TRIM value
-                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVATOR), pre_doublet_elevator, DOUBLET_TIME * 4)
+                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVATOR), pre_doublet_elevator, DOUBLET_TIME * OBSERVATION_TIME)
             elseif doublet_choice_pwm1 > 1700 and doublet_choice_pwm2 > 1300 and doublet_choice_pwm2 < 1700 then
                 -- doublet on thrust
                 DOUBLET_FUNCTION = K_THROTTLE
                 trim_funcs = {K_AILERON, K_RUDDER}
                 DOUBLET_MAGNITUDE = 5
                 -- pin elevator to current position. This is most likely different than the _TRIM value
-                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVATOR), pre_doublet_elevator, DOUBLET_TIME * 4)
+                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVATOR), pre_doublet_elevator, DOUBLET_TIME * OBSERVATION_TIME)
 
             end
             -- notify the gcs that we are starting a doublet
@@ -132,13 +132,12 @@ function doublet()
         elseif now < start_time + DOUBLET_TIME then
             up = doublet_srv_trim + math.floor((doublet_srv_max - doublet_srv_trim) * (DOUBLET_MAGNITUDE / 45))
             SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, up, DOUBLET_TIME / 2 + 100)
-        elseif now < start_time + (DOUBLET_TIME * 2) then
-            -- stick fixed at pre doublet trim position
-            SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, doublet_srv_trim, DOUBLET_TIME * 2)
-        elseif (now > start_time + (DOUBLET_TIME * 2)) and (now < start_time + (DOUBLET_TIME * 2) + callback_time) then
+        elseif (now > (start_time + DOUBLET_TIME)) and (now < (start_time + DOUBLET_TIME + callback_time)) then
             -- notify GCS
             gcs:send_text(6, "DOUBLET FINISHED")
-        elseif (now > start_time + (DOUBLET_TIME * 2) + callback_time) and (now < start_time + (DOUBLET_TIME * OBSERVATION_TIME)) then
+            -- stick fixed at pre doublet trim position
+            SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, doublet_srv_trim, DOUBLET_TIME * (OBSERVATION_TIME - 1))
+        elseif (now > start_time + DOUBLET_TIME + callback_time) and (now < start_time + (DOUBLET_TIME * OBSERVATION_TIME)) then
             -- do nothing until recording is complete
         elseif now > start_time + (DOUBLET_TIME * OBSERVATION_TIME) then
             -- wait for RC input channel to go low
