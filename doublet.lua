@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- This script will preform a control surface doublet
 -- Charles Johnson, OSU 2020
 -- Benjamin Durante, UofC 2021
@@ -133,6 +134,7 @@ function doublet()
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * OBSERVATION_TIME)
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONRIGHT), pre_doublet_elevator2, DOUBLET_TIME * OBSERVATION_TIME)
             end
+            
             -- notify the gcs that we are starting a doublet
             gcs:send_text(6, "STARTING DOUBLET " .. DOUBLET_FUNCTION1)
 
@@ -182,21 +184,20 @@ function doublet()
             if now < start_time + (DOUBLET_TIME / 2) then
                 down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / 45))
                 up = doublet_srv_trim2 + (math.floor((doublet_srv_max2 - doublet_srv_trim2) * (DOUBLET_MAGNITUDE / 45)) * opposite_elevon_motion)
-                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, down, DOUBLET_TIME / 2 + 100)
-                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, up, DOUBLET_TIME / 2 + 100)
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, down, DOUBLET_TIME / 2 + callback_time)
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, up, DOUBLET_TIME / 2 + callback_time)
             elseif now < start_time + DOUBLET_TIME then
                 up = doublet_srv_trim1 + math.floor((doublet_srv_max1 - doublet_srv_trim1) * (DOUBLET_MAGNITUDE / 45))
                 down = doublet_srv_trim2 - (math.floor((doublet_srv_trim2 - doublet_srv_min2) * (DOUBLET_MAGNITUDE / 45)) * opposite_elevon_motion)
-                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, DOUBLET_TIME / 2 + 100)
-                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, DOUBLET_TIME / 2 + 100)
-            elseif now < start_time + (DOUBLET_TIME * 2) then
-                -- stick fixed at pre doublet trim position
-                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, doublet_srv_trim1, DOUBLET_TIME * 2)
-                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, doublet_srv_trim2, DOUBLET_TIME * 2)
-            elseif (now > start_time + (DOUBLET_TIME * 2)) and (now < start_time + (DOUBLET_TIME * 2) + callback_time) then
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, DOUBLET_TIME / 2 + callback_time)
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, DOUBLET_TIME / 2 + callback_time)               
+            elseif (now > start_time + DOUBLET_TIME) and (now < start_time + DOUBLET_TIME + callback_time) then
                 -- notify GCS
                 gcs:send_text(6, "DOUBLET FINISHED")
-            elseif (now > start_time + (DOUBLET_TIME * 2) + callback_time) and (now < start_time + (DOUBLET_TIME * OBSERVATION_TIME)) then
+                -- stick fixed at pre doublet trim position
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, doublet_srv_trim1, DOUBLET_TIME * (OBSERVATION_TIME - 1))
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, doublet_srv_trim2, DOUBLET_TIME * (OBSERVATION_TIME - 1))
+            elseif (now > start_time + DOUBLET_TIME + callback_time) and (now < start_time + (DOUBLET_TIME * OBSERVATION_TIME)) then
                 -- do nothing until recording is complete
             elseif now > start_time + (DOUBLET_TIME * OBSERVATION_TIME) then
                 -- wait for RC input channel to go low
@@ -208,18 +209,17 @@ function doublet()
         else
             -- split time evenly between high and low signal
             if now < start_time + (DOUBLET_TIME / 2) then
-                down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / 45))
-                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, down, DOUBLET_TIME / 2 + 100)
+                down = doublet_srv_trim - math.floor((doublet_srv_trim - doublet_srv_min) * (DOUBLET_MAGNITUDE / 45))
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, down, DOUBLET_TIME / 2 + callback_time)
             elseif now < start_time + DOUBLET_TIME then
-                up = doublet_srv_trim1 + math.floor((doublet_srv_max1 - doublet_srv_trim1) * (DOUBLET_MAGNITUDE / 45))
-                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, DOUBLET_TIME / 2 + 100)
-            elseif now < start_time + (DOUBLET_TIME * 2) then
-                -- stick fixed at pre doublet trim position
-                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, doublet_srv_trim1, DOUBLET_TIME * 2)
-            elseif (now > start_time + (DOUBLET_TIME * 2)) and (now < start_time + (DOUBLET_TIME * 2) + callback_time) then
+                up = doublet_srv_trim + math.floor((doublet_srv_max - doublet_srv_trim) * (DOUBLET_MAGNITUDE / 45))
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, up, DOUBLET_TIME / 2 + callback_time)
+            elseif (now > (start_time + DOUBLET_TIME)) and (now < (start_time + DOUBLET_TIME + callback_time)) then
                 -- notify GCS
                 gcs:send_text(6, "DOUBLET FINISHED")
-            elseif (now > start_time + (DOUBLET_TIME * 2) + callback_time) and (now < start_time + (DOUBLET_TIME * OBSERVATION_TIME)) then
+                -- stick fixed at pre doublet trim position
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, doublet_srv_trim, DOUBLET_TIME * (OBSERVATION_TIME - 1))
+            elseif (now > start_time + DOUBLET_TIME + callback_time) and (now < start_time + (DOUBLET_TIME * OBSERVATION_TIME)) then
                 -- do nothing until recording is complete
             elseif now > start_time + (DOUBLET_TIME * OBSERVATION_TIME) then
                 -- wait for RC input channel to go low
