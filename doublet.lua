@@ -3,7 +3,7 @@
 -- Benjamin Durante, UofC 2021
 
 local DOUBLET_ACTION_CHANNEL = 6 -- RCIN channel to start a doublet when high (>1700)
-local DOUBLET_CHOICE_CHANNEL1 = 7 -- RCIN channel to choose elevator (low) or rudder (medium) or other (high)
+local DOUBLET_CHOICE_CHANNEL1 = 7 -- RCIN channel to choose elevator (low) or rudder (medium) or alternative channel (high)
 local DOUBLET_CHOICE_CHANNEL2 = 5 -- RCIN channel to choose aileron (low) or throttle (medium) or other (high)
 local DOUBLET_FUNCTION1 = 77 -- which control surface (SERVOx_FUNCTION) number will have a doublet happen
 local DOUBLET_FUNCTION2 = 78 -- which control surface (SERVOx_FUNCTION) number will have a doublet happen
@@ -31,7 +31,8 @@ local K_ELEVONLEFT = 77
 local K_ELEVONRIGHT = 78
 
 -- elevon direction setup
-local opposite_elevon_motion = 1;
+local opposite_elevon_motion_master = 1; -- 1 or -1 to correct for elevator/aileron mix-up
+local opposite_elevon_motion = opposite_elevon_motion_master;
 
 -- elevon doublet active
 local ACTIVE_AILERON = false
@@ -57,7 +58,7 @@ local doublet_srv_min2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_MIN")
 local doublet_srv_max2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_MAX")
 local doublet_srv_trim2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_TRIM")
 
-function retry_set_mode(mode)
+function retry_set_mode(mode) -- sets flight modes demanded from the main code
     if vehicle:set_mode(mode) then
         -- if the mode was set successfully, carry on as normal
         return doublet, 1
@@ -91,11 +92,10 @@ function doublet()
             local pre_doublet_elevator1 = SRV_Channels:get_output_pwm(K_ELEVONLEFT)
             local pre_doublet_elevator2 = SRV_Channels:get_output_pwm(K_ELEVONRIGHT)
             local pre_doublet_throttle = SRV_Channels:get_output_pwm(K_THROTTLE)
-            opposite_elevon_motion = 1; -- setting initial rotation here
-
+        
             if doublet_choice_pwm1 < 1300 then
                 -- doublet on elevator
-                opposite_elevon_motion = opposite_elevon_motion; -- choosing elevon rotation
+                opposite_elevon_motion = opposite_elevon_motion_master; -- choosing elevon rotation
                 ACTIVE_ELEVATOR = true
                 DOUBLET_FUNCTION1 = K_ELEVONLEFT
                 DOUBLET_FUNCTION2 = K_ELEVONRIGHT
@@ -114,7 +114,7 @@ function doublet()
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONRIGHT), pre_doublet_elevator2, DOUBLET_TIME * 4)
             elseif doublet_choice_pwm1 > 1700 and doublet_choice_pwm2 < 1300 then
                 -- doublet on aileron
-                opposite_elevon_motion = 0 - opposite_elevon_motion; -- choosing elevon rotation
+                opposite_elevon_motion = 0 - opposite_elevon_motion_master; -- choosing elevon rotation
                 ACTIVE_AILERON = true
                 DOUBLET_FUNCTION1 = K_ELEVONLEFT
                 DOUBLET_FUNCTION2 = K_ELEVONRIGHT
