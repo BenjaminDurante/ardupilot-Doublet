@@ -1,15 +1,22 @@
 -- This script will preform a control surface doublet
 -- Charles Johnson, OSU 2020
+-- Benjamin Durante, UofC 2021
 
 local DOUBLET_ACTION_CHANNEL = 6 -- RCIN channel to start a doublet when high (>1700)
 local DOUBLET_CHOICE_CHANNEL1 = 7 -- RCIN channel to choose elevator (low) or rudder (medium) or other (high)
 local DOUBLET_CHOICE_CHANNEL2 = 5 -- RCIN channel to choose aileron (low) or throttle (medium) or other (high)
 local DOUBLET_FUNCTION1 = 77 -- which control surface (SERVOx_FUNCTION) number will have a doublet happen
 local DOUBLET_FUNCTION2 = 78 -- which control surface (SERVOx_FUNCTION) number will have a doublet happen
-local DOUBLET_MAGNITUDE = 6 -- defined out of 45 deg used for set_output_scaled
-local DOUBLET_TIME = 500 -- period of doublet signal in ms
-local OBSERVATION_TIME = 5 -- multiple of the doublet time to hold other deflections constant
 
+-- Doublet parameters
+--local DOUBLET_TIME = 500 -- period of doublet signal in ms
+local DOUBLET_TIME = 10000 -- testing time to measure angular deflection
+local OBSERVATION_TIME = 1 -- multiple of the doublet time to hold other deflections constant
+local DOUBLET_MAGNITUDE = 6 -- defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_ELEVATOR = 12 -- elevator deflection magnitude 
+local DOUBLET_MAGNITUDE_AILERON = 5 -- aileron deflection magnitude
+local DOUBLET_MAGNITUDE_RUDDER = 15 -- rudder deflection magnitude
+local DOUBLET_MAGNITUDE_THROTTLE = 5 -- throttle deflection magnitude
 
 -- flight mode numbers for plane https://mavlink.io/en/messages/ardupilotmega.html
 local MODE_MANUAL = 0
@@ -93,7 +100,7 @@ function doublet()
                 DOUBLET_FUNCTION1 = K_ELEVONLEFT
                 DOUBLET_FUNCTION2 = K_ELEVONRIGHT
                 trim_funcs = {K_RUDDER}
-                DOUBLET_MAGNITUDE = 12
+                DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_ELEVATOR
                 doublet_srv_trim1 = pre_doublet_elevator1
                 doublet_srv_trim2 = pre_doublet_elevator2
             elseif doublet_choice_pwm1 > 1300 and doublet_choice_pwm1 < 1700 then
@@ -101,7 +108,7 @@ function doublet()
                 ACTIVE_RUDDER = true
                 DOUBLET_FUNCTION1 = K_RUDDER
                 trim_funcs = {}
-                DOUBLET_MAGNITUDE = 15
+                DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_RUDDER
                 -- pin elevator to current position. This is most likely different than the _TRIM value
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * 4)
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONRIGHT), pre_doublet_elevator2, DOUBLET_TIME * 4)
@@ -112,7 +119,7 @@ function doublet()
                 DOUBLET_FUNCTION1 = K_ELEVONLEFT
                 DOUBLET_FUNCTION2 = K_ELEVONRIGHT
                 trim_funcs = {K_RUDDER}
-                DOUBLET_MAGNITUDE = 5
+                DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_AILERON
                 -- pin elevator to current position. This is most likely different than the _TRIM value
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * 4)
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONRIGHT), pre_doublet_elevator2, DOUBLET_TIME * 4)
@@ -121,7 +128,7 @@ function doublet()
                 ACTIVE_THROTTLE = true
                 DOUBLET_FUNCTION1 = K_THROTTLE
                 trim_funcs = {K_RUDDER}
-                DOUBLET_MAGNITUDE = 5
+                DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_THROTTLE
                 -- pin elevator to current position. This is most likely different than the _TRIM value
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * 4)
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONRIGHT), pre_doublet_elevator2, DOUBLET_TIME * 4)
