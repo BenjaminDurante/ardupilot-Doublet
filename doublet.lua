@@ -110,8 +110,8 @@ function doublet()
                 trim_funcs = {}
                 DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_RUDDER
                 -- pin elevator to current position. This is most likely different than the _TRIM value
-                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * 4)
-                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONRIGHT), pre_doublet_elevator2, DOUBLET_TIME * 4)
+                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * OBSERVATION_TIME)
+                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONRIGHT), pre_doublet_elevator2, DOUBLET_TIME * OBSERVATION_TIME)
             elseif doublet_choice_pwm1 > 1700 and doublet_choice_pwm2 < 1300 then
                 -- doublet on aileron
                 opposite_elevon_motion = 0 - opposite_elevon_motion_master; -- choosing elevon rotation
@@ -121,8 +121,8 @@ function doublet()
                 trim_funcs = {K_RUDDER}
                 DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_AILERON
                 -- pin elevator to current position. This is most likely different than the _TRIM value
-                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * 4)
-                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONRIGHT), pre_doublet_elevator2, DOUBLET_TIME * 4)
+                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * OBSERVATION_TIME)
+                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONRIGHT), pre_doublet_elevator2, DOUBLET_TIME * OBSERVATION_TIME)
             elseif doublet_choice_pwm1 > 1700 and doublet_choice_pwm2 > 1300 and doublet_choice_pwm2 < 1700 then
                 -- doublet on thrust
                 ACTIVE_THROTTLE = true
@@ -130,8 +130,8 @@ function doublet()
                 trim_funcs = {K_RUDDER}
                 DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_THROTTLE
                 -- pin elevator to current position. This is most likely different than the _TRIM value
-                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * 4)
-                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONRIGHT), pre_doublet_elevator2, DOUBLET_TIME * 4)
+                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * OBSERVATION_TIME)
+                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONRIGHT), pre_doublet_elevator2, DOUBLET_TIME * OBSERVATION_TIME)
             end
             -- notify the gcs that we are starting a doublet
             gcs:send_text(6, "STARTING DOUBLET " .. DOUBLET_FUNCTION1)
