@@ -72,7 +72,7 @@ end
 
 function doublet()
     local callback_time = 100
-    if arming:is_armed() == true and rc:get_pwm(DOUBLET_ACTION_CHANNEL) > 1700 and end_time ==-1 and rc:get_pwm(MANEUVER_ACTION_CHANNEL) < 1300 then
+    if arming:is_armed() == true and rc:get_pwm(DOUBLET_ACTION_CHANNEL) > 1700 and end_time ==-1 and rc:get_pwm(MANEUVER_ACTION_CHANNEL) > 1300 and rc:get_pwm(MANEUVER_ACTION_CHANNEL) < 1700 then
         callback_time = DOUBLET_TIME / 10
         -- start a quick doublet based on some math/logic
         now = millis()
