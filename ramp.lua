@@ -8,7 +8,7 @@ local DOUBLET_CHOICE_CHANNEL3 = 9 -- RCIN channel to choose doublet (low) or ram
 local DOUBLET_FUNCTION = 19 -- which control surface (SERVOx_FUNCTION) number will have a doublet happen
 -- A (Servo 1, Function 4), E (Servo 2, Function 19), and R (Servo 4, Function 21)
 local DOUBLET_MAGNITUDE = 6 -- defined out of 45 deg used for set_output_scaled
-local DOUBLET_TIME = 500 -- period of doublet signal in ms
+local DOUBLET_TIME = 1000 -- period of doublet signal in ms
 local OBSERVATION_TIME = 5 -- multiple of the doublet time to hold other deflections constant
 
 
@@ -27,6 +27,7 @@ local K_RUDDER = 21
 local start_time = -1
 local end_time = -1
 local now = -1
+local ramp_start_time = -1
 
 -- store information about the vehicle
 local doublet_srv_chan = SRV_Channels:find_channel(DOUBLET_FUNCTION)
@@ -91,7 +92,6 @@ function doublet()
                 DOUBLET_MAGNITUDE = 5
                 -- pin elevator to current position. This is most likely different than the _TRIM value
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVATOR), pre_doublet_elevator, DOUBLET_TIME * 4)
-
             end
             -- notify the gcs that we are starting a doublet
             gcs:send_text(6, "STARTING DOUBLET " .. DOUBLET_FUNCTION)
@@ -125,16 +125,33 @@ function doublet()
             end
             -- enter manual mode
             retry_set_mode(MODE_MANUAL)
+            ramp_start_time = tonumber(tostring(now))
+            -- for whatever reason, the variable now is stored as a uint32_t which needs to be converted into a string then a number
+            -- for whatever reason, this conversion cannot be performed from uint32_t to number... beats me ¯\_(ツ)_/¯
         end
         
-
+        
         -- split time evenly between high and low signal
-        if now < start_time + (DOUBLET_TIME / 2) then
+        if now < start_time + (DOUBLET_TIME * 1/6) then
+            down = doublet_srv_trim - math.floor((doublet_srv_trim - doublet_srv_min) * (DOUBLET_MAGNITUDE / 45) * (tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 1/6) - ramp_start_time))
+            SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, down, math.floor(DOUBLET_TIME * 1/6) + 100)
+        elseif now < start_time + (DOUBLET_TIME * 2/6) then 
             down = doublet_srv_trim - math.floor((doublet_srv_trim - doublet_srv_min) * (DOUBLET_MAGNITUDE / 45))
-            SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, down, DOUBLET_TIME / 2 + 100)
-        elseif now < start_time + DOUBLET_TIME then
+            SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, down, math.floor(DOUBLET_TIME * 1/6) + 100)
+            ramp_start_time = tonumber(tostring(now))
+        elseif now < start_time + (DOUBLET_TIME * 3/6) then
+            up = doublet_srv_trim - math.floor((doublet_srv_trim - doublet_srv_min) * (DOUBLET_MAGNITUDE / 45) * (1 - ((tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 3/6) - ramp_start_time))))
+            SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, up, math.floor(DOUBLET_TIME * 1/6) + 100)
+        elseif now < start_time + (DOUBLET_TIME * 4/6) then
+            up = doublet_srv_trim + math.floor((doublet_srv_max - doublet_srv_trim) * (DOUBLET_MAGNITUDE / 45) * ((tonumber(tostring(now)) - (ramp_start_time + DOUBLET_TIME * 1/6)) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 4/6) - (ramp_start_time + DOUBLET_TIME * 1/6))))
+            SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, up, math.floor(DOUBLET_TIME * 1/6) + 100)
+        elseif now < start_time + (DOUBLET_TIME * 5/6) then
             up = doublet_srv_trim + math.floor((doublet_srv_max - doublet_srv_trim) * (DOUBLET_MAGNITUDE / 45))
-            SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, up, DOUBLET_TIME / 2 + 100)
+            SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, up, math.floor(DOUBLET_TIME * 1/6) + 100)
+            ramp_start_time = tonumber(tostring(now))
+        elseif now < start_time + (DOUBLET_TIME * 6/6) then 
+            down = doublet_srv_trim + math.floor((doublet_srv_max - doublet_srv_trim) * (DOUBLET_MAGNITUDE / 45) * (1 - ((tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 6/6) - ramp_start_time))))
+            SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan, down, math.floor(DOUBLET_TIME * 1/6) + 100)
         elseif (now > (start_time + DOUBLET_TIME)) and (now < (start_time + DOUBLET_TIME + callback_time)) then
             -- notify GCS
             gcs:send_text(6, "DOUBLET FINISHED")
