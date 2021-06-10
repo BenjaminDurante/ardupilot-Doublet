@@ -183,17 +183,39 @@ function doublet()
         if ACTIVE_AILERON == true or ACTIVE_ELEVATOR == true then
             -- elevator or aileron doublet, setting up the other elevon
             -- split time evenly between high and low signal
-            if now < start_time + (DOUBLET_TIME / 2) then
+            if now < start_time + (DOUBLET_TIME * 1/6) then
+                down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / 45) * (tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 1/6) - ramp_start_time))
+                up = doublet_srv_trim2 + (math.floor((doublet_srv_max2 - doublet_srv_trim2) * (DOUBLET_MAGNITUDE / 45)) * opposite_elevon_motion * (tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 1/6) - ramp_start_time))
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, down, math.floor(DOUBLET_TIME * 1/6) + 100)
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, up, math.floor(DOUBLET_TIME * 1/6) + 100)
+            elseif now < start_time + (DOUBLET_TIME * 2/6) then 
                 down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / 45))
                 up = doublet_srv_trim2 + (math.floor((doublet_srv_max2 - doublet_srv_trim2) * (DOUBLET_MAGNITUDE / 45)) * opposite_elevon_motion)
-                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, down, DOUBLET_TIME / 2 + callback_time)
-                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, up, DOUBLET_TIME / 2 + callback_time)
-            elseif now < start_time + DOUBLET_TIME then
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, down, math.floor(DOUBLET_TIME * 1/6) + 100)
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, up, math.floor(DOUBLET_TIME * 1/6) + 100)
+                ramp_start_time = tonumber(tostring(now))
+           elseif now < start_time + (DOUBLET_TIME * 3/6) then
+                down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / 45) * (1 - (tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 1/6) - ramp_start_time)))
+                up = doublet_srv_trim2 + (math.floor((doublet_srv_max2 - doublet_srv_trim2) * (DOUBLET_MAGNITUDE / 45)) * opposite_elevon_motion * (1 - (tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 1/6) - ramp_start_time)))
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, down, math.floor(DOUBLET_TIME * 1/6) + 100)
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, up, math.floor(DOUBLET_TIME * 1/6) + 100)
+            elseif now < start_time + (DOUBLET_TIME * 4/6) then
+                up = doublet_srv_trim1 + math.floor((doublet_srv_max1 - doublet_srv_trim1) * (DOUBLET_MAGNITUDE / 45) * ((tonumber(tostring(now)) - (ramp_start_time + DOUBLET_TIME * 1/6)) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 4/6) - (ramp_start_time + DOUBLET_TIME * 1/6))))
+                down = doublet_srv_trim2 - (math.floor((doublet_srv_trim2 - doublet_srv_min2) * (DOUBLET_MAGNITUDE / 45)) * opposite_elevon_motion * ((tonumber(tostring(now)) - (ramp_start_time + DOUBLET_TIME * 1/6)) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 4/6) - (ramp_start_time + DOUBLET_TIME * 1/6))))
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, math.floor(DOUBLET_TIME * 1/6) + 100)
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, math.floor(DOUBLET_TIME * 1/6) + 100)
+            elseif now < start_time + (DOUBLET_TIME * 5/6) then
                 up = doublet_srv_trim1 + math.floor((doublet_srv_max1 - doublet_srv_trim1) * (DOUBLET_MAGNITUDE / 45))
                 down = doublet_srv_trim2 - (math.floor((doublet_srv_trim2 - doublet_srv_min2) * (DOUBLET_MAGNITUDE / 45)) * opposite_elevon_motion)
-                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, DOUBLET_TIME / 2 + callback_time)
-                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, DOUBLET_TIME / 2 + callback_time)               
-            elseif (now > start_time + DOUBLET_TIME) and (now < start_time + DOUBLET_TIME + callback_time) then
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, math.floor(DOUBLET_TIME * 1/6) + 100)
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, math.floor(DOUBLET_TIME * 1/6) + 100)
+                ramp_start_time = tonumber(tostring(now))
+            elseif now < start_time + (DOUBLET_TIME * 6/6) then 
+                up = doublet_srv_trim1 + math.floor((doublet_srv_max1 - doublet_srv_trim1) * (DOUBLET_MAGNITUDE / 45) * (1 - ((tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 6/6) - ramp_start_time))))
+                down = doublet_srv_trim2 - (math.floor((doublet_srv_trim2 - doublet_srv_min2) * (DOUBLET_MAGNITUDE / 45)) * (1 - ((tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 3/6) - ramp_start_time))))
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, math.floor(DOUBLET_TIME * 1/6) + 100)
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, math.floor(DOUBLET_TIME * 1/6) + 100)
+            elseif (now > (start_time + DOUBLET_TIME)) and (now < (start_time + DOUBLET_TIME + callback_time)) then
                 -- notify GCS
                 gcs:send_text(6, "DOUBLET FINISHED")
                 -- stick fixed at pre doublet trim position
