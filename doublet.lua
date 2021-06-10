@@ -149,7 +149,7 @@ function doublet()
                 doublet_srv_max2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_MAX")
                 doublet_srv_trim2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_TRIM")
             elseif ACTIVE_RUDDER == true then 
-                doublet_srv_chan2 = SRV_Channels:find_channel(DOUBLET_FUNCTION2)
+                doublet_srv_chan2 = doublet_srv_chan1 + 1
                 doublet_srv_min2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_MIN")
                 doublet_srv_max2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_MAX")
                 doublet_srv_trim2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_TRIM")
@@ -159,8 +159,8 @@ function doublet()
             if ACTIVE_RUDDER ~= true then 
                 for i = 1,2 do
                     local trim_chan = SRV_Channels:find_channel(K_RUDDER)
-                    ocal trim_pwm = param:get("SERVO" .. trim_chan + i .. "_TRIM")
-                    SRV_Channels:set_output_pwm_chan_timeout(trim_chan, trim_pwm, DOUBLET_TIME * OBSERVATION_TIME)
+                    local trim_pwm = param:get("SERVO" .. trim_chan + i .. "_TRIM")
+                    SRV_Channels:set_output_pwm_chan_timeout((trim_chan + (i-1)), trim_pwm, DOUBLET_TIME * OBSERVATION_TIME)
                 end
             end
 
@@ -196,6 +196,31 @@ function doublet()
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, DOUBLET_TIME / 2 + 100)
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, DOUBLET_TIME / 2 + 100)               
             elseif (now > start_time + DOUBLET_TIME) and (now < start_time + DOUBLET_TIME + callback_time) then
+                -- notify GCS
+                gcs:send_text(6, "DOUBLET FINISHED")
+                -- stick fixed at pre doublet trim position
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, doublet_srv_trim1, DOUBLET_TIME * (OBSERVATION_TIME - 1))
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, doublet_srv_trim2, DOUBLET_TIME * (OBSERVATION_TIME - 1))
+            elseif (now > start_time + DOUBLET_TIME + callback_time) and (now < start_time + (DOUBLET_TIME * OBSERVATION_TIME)) then
+                -- do nothing until recording is complete
+            elseif now > start_time + (DOUBLET_TIME * OBSERVATION_TIME) then
+                -- wait for RC input channel to go low
+                end_time = now
+                gcs:send_text(6, "DOUBLET OBSERVATION FINISHED")
+            else
+                gcs:send_text(6, "this should not be reached")
+            end
+        elseif ACTIVE_RUDDER == true then
+            -- split time evenly between high and low signal
+            if now < start_time + (DOUBLET_TIME / 2) then
+                down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / 45))
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, down, DOUBLET_TIME / 2 + 100)
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, DOUBLET_TIME / 2 + 100)
+            elseif now < start_time + DOUBLET_TIME then
+                up = doublet_srv_trim1 + math.floor((doublet_srv_max1 - doublet_srv_trim1) * (DOUBLET_MAGNITUDE / 45))
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, DOUBLET_TIME / 2 + 100)
+                SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, up, DOUBLET_TIME / 2 + 100)
+            elseif (now > (start_time + DOUBLET_TIME)) and (now < (start_time + DOUBLET_TIME + callback_time)) then
                 -- notify GCS
                 gcs:send_text(6, "DOUBLET FINISHED")
                 -- stick fixed at pre doublet trim position
