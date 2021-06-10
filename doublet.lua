@@ -101,7 +101,6 @@ function doublet()
                 ACTIVE_ELEVATOR = true
                 DOUBLET_FUNCTION1 = K_ELEVONLEFT
                 DOUBLET_FUNCTION2 = K_ELEVONRIGHT
-                trim_funcs = {K_RUDDER}
                 DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_ELEVATOR
                 doublet_srv_trim1 = pre_doublet_elevator1
                 doublet_srv_trim2 = pre_doublet_elevator2
@@ -109,7 +108,6 @@ function doublet()
                 -- doublet on rudder
                 ACTIVE_RUDDER = true
                 DOUBLET_FUNCTION1 = K_RUDDER
-                trim_funcs = {}
                 DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_RUDDER
                 -- pin elevator to current position. This is most likely different than the _TRIM value
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * OBSERVATION_TIME)
@@ -120,16 +118,13 @@ function doublet()
                 ACTIVE_AILERON = true
                 DOUBLET_FUNCTION1 = K_ELEVONLEFT
                 DOUBLET_FUNCTION2 = K_ELEVONRIGHT
-                trim_funcs = {K_RUDDER}
                 DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_AILERON
-                -- pin elevator to current position. This is most likely different than the _TRIM value
-                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * OBSERVATION_TIME)
-                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONRIGHT), pre_doublet_elevator2, DOUBLET_TIME * OBSERVATION_TIME)
+                doublet_srv_trim1 = pre_doublet_elevator1
+                doublet_srv_trim2 = pre_doublet_elevator2
             elseif doublet_choice_pwm1 > 1700 and doublet_choice_pwm2 > 1300 and doublet_choice_pwm2 < 1700 then
                 -- doublet on thrust
                 ACTIVE_THROTTLE = true
                 DOUBLET_FUNCTION1 = K_THROTTLE
-                trim_funcs = {K_RUDDER}
                 DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_THROTTLE
                 -- pin elevator to current position. This is most likely different than the _TRIM value
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * OBSERVATION_TIME)
@@ -153,14 +148,22 @@ function doublet()
                 doublet_srv_min2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_MIN")
                 doublet_srv_max2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_MAX")
                 doublet_srv_trim2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_TRIM")
+            elseif ACTIVE_RUDDER == true then 
+                doublet_srv_chan2 = SRV_Channels:find_channel(DOUBLET_FUNCTION2)
+                doublet_srv_min2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_MIN")
+                doublet_srv_max2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_MAX")
+                doublet_srv_trim2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_TRIM")
             end
 
-            -- set the channels that need to be still to trim until the doublet is done
-            for i = 1, #trim_funcs do
-                local trim_chan = SRV_Channels:find_channel(trim_funcs[i])
-                local trim_pwm = param:get("SERVO" .. trim_chan + 1 .. "_TRIM")
-                SRV_Channels:set_output_pwm_chan_timeout(trim_chan, trim_pwm, DOUBLET_TIME * OBSERVATION_TIME)
+            -- set the rudder channels that need to be still to trim until the doublet is done
+            if ACTIVE_RUDDER ~= true then 
+                for i = 1,2 do
+                    local trim_chan = SRV_Channels:find_channel(K_RUDDER)
+                    ocal trim_pwm = param:get("SERVO" .. trim_chan + i .. "_TRIM")
+                    SRV_Channels:set_output_pwm_chan_timeout(trim_chan, trim_pwm, DOUBLET_TIME * OBSERVATION_TIME)
+                end
             end
+
 
             if ACTIVE_THROTTLE ~= true then 
                 -- get the current throttle PWM and pin it there until the doublet is done
