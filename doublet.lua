@@ -1,7 +1,16 @@
 ---@diagnostic disable: undefined-global
 -- This script will preform a control surface doublet
--- Charles Johnson, OSU 2020
--- Benjamin Durante, UofC 2021
+-- The desired axis to perform a doublet on is selected and started with a momentary switch
+-- The plane maintains trim conditions while the switch is activated using servo overrides
+-- If the momentary switch is released before "DOUBLET FINISHED" is seen on the GCS,
+-- the aircraft recovers to FBWA mode to assist the pilot.
+-- Magnitude and duration of the doublet can also be controlled.
+-- It is suggested to allow the aircraft to trim for straight, level, unaccelerated flight (SLUF) in FBWB mode before
+-- starting a doublet
+-- Charlie Johnson, Oklahoma State University 2020
+-- Benjamin Durante, University of Calgary 2021
+
+-- This code has been modified for the elevon aircrafts used in the lab
 
 local MANEUVER_ACTION_CHANNEL = 9 -- RCIN channel to start a doublet when high (low) or ramp (medium) or step (high)
 local DOUBLET_ACTION_CHANNEL = 6 -- RCIN channel to start a doublet when high (>1700)
@@ -13,12 +22,12 @@ local DOUBLET_FUNCTION2 = 78 -- which control surface (SERVOx_FUNCTION) number w
 -- Doublet parameters
 local DOUBLET_TIME = 500 -- period of doublet signal in ms
 -- local DOUBLET_TIME = 10000 -- testing time to measure angular deflection
-local OBSERVATION_TIME = 1 -- multiple of the doublet time to hold other deflections constant
-local DOUBLET_MAGNITUDE = 6 -- defined out of 45 deg used for set_output_scaled
-local DOUBLET_MAGNITUDE_ELEVATOR = 12 -- elevator deflection magnitude 
-local DOUBLET_MAGNITUDE_AILERON = 5 -- aileron deflection magnitude
-local DOUBLET_MAGNITUDE_RUDDER = 15 -- rudder deflection magnitude
-local DOUBLET_MAGNITUDE_THROTTLE = 5 -- throttle deflection magnitude
+local OBSERVATION_TIME = 5 -- multiple of the doublet time to hold other deflections constant
+local DOUBLET_MAGNITUDE = -1 -- defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_ELEVATOR = 12 -- elevator deflection magnitude defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_AILERON = 5 -- aileron deflection magnitude defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_RUDDER = 15 -- rudder deflection magnitude defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_THROTTLE = 5 -- throttle deflection magnitude defined out of 45 deg used for set_output_scaled
 
 -- flight mode numbers for plane https://mavlink.io/en/messages/ardupilotmega.html
 local MODE_MANUAL = 0
@@ -54,7 +63,6 @@ local doublet_srv_min1 = param:get("SERVO" .. doublet_srv_chan1 + 1 .. "_MIN")
 local doublet_srv_max1 = param:get("SERVO" .. doublet_srv_chan1 + 1 .. "_MAX")
 local doublet_srv_trim1 = param:get("SERVO" .. doublet_srv_chan1 + 1 .. "_TRIM")
 local pre_doublet_mode = vehicle:get_mode()
-local current_hagl = ahrs:get_hagl()
 local doublet_srv_chan2 = SRV_Channels:find_channel(DOUBLET_FUNCTION2)
 local doublet_srv_min2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_MIN")
 local doublet_srv_max2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_MAX")
@@ -90,7 +98,6 @@ function doublet()
             -- where are we doing the doublet? set the other controls to trim
             local doublet_choice_pwm1 = rc:get_pwm(DOUBLET_CHOICE_CHANNEL1)
             local doublet_choice_pwm2 = rc:get_pwm(DOUBLET_CHOICE_CHANNEL2)
-            local trim_funcs = {}
             local pre_doublet_elevator1 = SRV_Channels:get_output_pwm(K_ELEVONLEFT)
             local pre_doublet_elevator2 = SRV_Channels:get_output_pwm(K_ELEVONRIGHT)
             local pre_doublet_throttle = SRV_Channels:get_output_pwm(K_THROTTLE)
@@ -102,8 +109,6 @@ function doublet()
                 DOUBLET_FUNCTION1 = K_ELEVONLEFT
                 DOUBLET_FUNCTION2 = K_ELEVONRIGHT
                 DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_ELEVATOR
-                doublet_srv_trim1 = pre_doublet_elevator1
-                doublet_srv_trim2 = pre_doublet_elevator2
             elseif doublet_choice_pwm1 > 1300 and doublet_choice_pwm1 < 1700 then
                 -- doublet on rudder
                 ACTIVE_RUDDER = true
@@ -119,8 +124,6 @@ function doublet()
                 DOUBLET_FUNCTION1 = K_ELEVONLEFT
                 DOUBLET_FUNCTION2 = K_ELEVONRIGHT
                 DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_AILERON
-                doublet_srv_trim1 = pre_doublet_elevator1
-                doublet_srv_trim2 = pre_doublet_elevator2
             elseif doublet_choice_pwm1 > 1700 and doublet_choice_pwm2 > 1300 and doublet_choice_pwm2 < 1700 then
                 -- doublet on thrust
                 ACTIVE_THROTTLE = true
@@ -178,7 +181,7 @@ function doublet()
                 doublet_srv_chan1 = SRV_Channels:find_channel(DOUBLET_FUNCTION1)
                 doublet_srv_trim1 = pre_doublet_throttle
             end
-            -- enter manual mode
+            -- enter manual mode to ensure observations are aircraft behaviour
             retry_set_mode(MODE_MANUAL)
         end
         

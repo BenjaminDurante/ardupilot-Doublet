@@ -1,7 +1,14 @@
 ---@diagnostic disable: undefined-global
--- This script will preform a control surface doublet
--- Charles Johnson, OSU 2020
--- Benjamin Durante, UofC 2021
+-- This script will preform a control surface ramp
+-- The desired axis to perform a ramp on is selected and started with a momentary switch
+-- The plane maintains trim conditions while the switch is activated using servo overrides
+-- If the momentary switch is released before "RAMP FINISHED" is seen on the GCS,
+-- the aircraft recovers to FBWA mode to assist the pilot.
+-- Magnitude and duration of the ramp can also be controlled.
+-- It is suggested to allow the aircraft to trim for straight, level, unaccelerated flight (SLUF) in FBWB mode before
+-- starting a ramp
+-- Charlie Johnson, Oklahoma State University 2020
+-- Benjamin Durante, University of Calgary 2021
 
 local MANEUVER_ACTION_CHANNEL = 9 -- RCIN channel to start a doublet when high (low) or ramp (medium) or step (high)
 local DOUBLET_ACTION_CHANNEL = 6 -- RCIN channel to start a doublet when high (>1700)
@@ -12,12 +19,12 @@ local DOUBLET_FUNCTION2 = 78 -- which control surface (SERVOx_FUNCTION) number w
 
 -- Doublet parameters
 local DOUBLET_TIME = 1000 -- period of doublet signal in ms
-local OBSERVATION_TIME = 1 -- multiple of the doublet time to hold other deflections constant
-local DOUBLET_MAGNITUDE = 6 -- defined out of 45 deg used for set_output_scaled
-local DOUBLET_MAGNITUDE_ELEVATOR = 12 -- elevator deflection magnitude 
-local DOUBLET_MAGNITUDE_AILERON = 5 -- aileron deflection magnitude
-local DOUBLET_MAGNITUDE_RUDDER = 15 -- rudder deflection magnitude
-local DOUBLET_MAGNITUDE_THROTTLE = 5 -- throttle deflection magnitude
+local OBSERVATION_TIME = 5 -- multiple of the doublet time to hold other deflections constant
+local DOUBLET_MAGNITUDE = -1 -- defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_ELEVATOR = 12 -- elevator deflection magnitude defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_AILERON = 5 -- aileron deflection magnitude defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_RUDDER = 15 -- rudder deflection magnitude defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_THROTTLE = 5 -- throttle deflection magnitude defined out of 45 deg used for set_output_scaled
 
 -- flight mode numbers for plane https://mavlink.io/en/messages/ardupilotmega.html
 local MODE_MANUAL = 0
@@ -54,7 +61,6 @@ local doublet_srv_min1 = param:get("SERVO" .. doublet_srv_chan1 + 1 .. "_MIN")
 local doublet_srv_max1 = param:get("SERVO" .. doublet_srv_chan1 + 1 .. "_MAX")
 local doublet_srv_trim1 = param:get("SERVO" .. doublet_srv_chan1 + 1 .. "_TRIM")
 local pre_doublet_mode = vehicle:get_mode()
-local current_hagl = ahrs:get_hagl()
 local doublet_srv_chan2 = SRV_Channels:find_channel(DOUBLET_FUNCTION2)
 local doublet_srv_min2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_MIN")
 local doublet_srv_max2 = param:get("SERVO" .. doublet_srv_chan2 + 1 .. "_MAX")
@@ -90,7 +96,6 @@ function doublet()
             -- where are we doing the doublet? set the other controls to trim
             local doublet_choice_pwm1 = rc:get_pwm(DOUBLET_CHOICE_CHANNEL1)
             local doublet_choice_pwm2 = rc:get_pwm(DOUBLET_CHOICE_CHANNEL2)
-            local trim_funcs = {}
             local pre_doublet_elevator1 = SRV_Channels:get_output_pwm(K_ELEVONLEFT)
             local pre_doublet_elevator2 = SRV_Channels:get_output_pwm(K_ELEVONRIGHT)
             local pre_doublet_throttle = SRV_Channels:get_output_pwm(K_THROTTLE)
@@ -101,15 +106,11 @@ function doublet()
                 ACTIVE_ELEVATOR = true
                 DOUBLET_FUNCTION1 = K_ELEVONLEFT
                 DOUBLET_FUNCTION2 = K_ELEVONRIGHT
-                trim_funcs = {K_RUDDER}
                 DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_ELEVATOR
-                doublet_srv_trim1 = pre_doublet_elevator1
-                doublet_srv_trim2 = pre_doublet_elevator2
             elseif doublet_choice_pwm1 > 1300 and doublet_choice_pwm1 < 1700 then
                 -- doublet on rudder
                 ACTIVE_RUDDER = true
                 DOUBLET_FUNCTION1 = K_RUDDER
-                trim_funcs = {}
                 DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_RUDDER
                 -- pin elevator to current position. This is most likely different than the _TRIM value
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * OBSERVATION_TIME)
@@ -120,16 +121,11 @@ function doublet()
                 ACTIVE_AILERON = true
                 DOUBLET_FUNCTION1 = K_ELEVONLEFT
                 DOUBLET_FUNCTION2 = K_ELEVONRIGHT
-                trim_funcs = {K_RUDDER}
                 DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_AILERON
-                -- pin elevator to current position. This is most likely different than the _TRIM value
-                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * OBSERVATION_TIME)
-                SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONRIGHT), pre_doublet_elevator2, DOUBLET_TIME * OBSERVATION_TIME)
             elseif doublet_choice_pwm1 > 1700 and doublet_choice_pwm2 > 1300 and doublet_choice_pwm2 < 1700 then
                 -- doublet on thrust
                 ACTIVE_THROTTLE = true
                 DOUBLET_FUNCTION1 = K_THROTTLE
-                trim_funcs = {K_RUDDER}
                 DOUBLET_MAGNITUDE = DOUBLET_MAGNITUDE_THROTTLE
                 -- pin elevator to current position. This is most likely different than the _TRIM value
                 SRV_Channels:set_output_pwm_chan_timeout(SRV_Channels:find_channel(K_ELEVONLEFT), pre_doublet_elevator1, DOUBLET_TIME * OBSERVATION_TIME)
@@ -137,7 +133,7 @@ function doublet()
             end
             
             -- notify the gcs that we are starting a doublet
-            gcs:send_text(6, "STARTING DOUBLET " .. DOUBLET_FUNCTION1)
+            gcs:send_text(6, "STARTING RAMP DOUBLET" .. DOUBLET_FUNCTION1)
 
             
             -- get info about the doublet channel
@@ -184,6 +180,7 @@ function doublet()
             end
             -- enter manual mode
             retry_set_mode(MODE_MANUAL)
+            -- saving start time of doublet to compute the ramp rate
             ramp_start_time = tonumber(tostring(now))
         end
         
@@ -224,7 +221,7 @@ function doublet()
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, math.floor(DOUBLET_TIME * 1/6) + 100)
             elseif (now > (start_time + DOUBLET_TIME)) and (now < (start_time + DOUBLET_TIME + callback_time)) then
                 -- notify GCS
-                gcs:send_text(6, "DOUBLET FINISHED")
+                gcs:send_text(6, "RAMP DOUBLET FINISHED")
                 -- stick fixed at pre doublet trim position
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, doublet_srv_trim1, DOUBLET_TIME * (OBSERVATION_TIME - 1))
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, doublet_srv_trim2, DOUBLET_TIME * (OBSERVATION_TIME - 1))
@@ -233,7 +230,7 @@ function doublet()
             elseif now > start_time + (DOUBLET_TIME * OBSERVATION_TIME) then
                 -- wait for RC input channel to go low
                 end_time = now
-                gcs:send_text(6, "DOUBLET OBSERVATION FINISHED")
+                gcs:send_text(6, "RAMP DOUBLET OBSERVATION FINISHED")
             else
                 gcs:send_text(6, "this should not be reached")
             end
@@ -267,7 +264,7 @@ function doublet()
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, math.floor(DOUBLET_TIME * 1/6) + 100)
             elseif (now > (start_time + DOUBLET_TIME)) and (now < (start_time + DOUBLET_TIME + callback_time)) then
                 -- notify GCS
-                gcs:send_text(6, "DOUBLET FINISHED")
+                gcs:send_text(6, "RAMP DOUBLET FINISHED")
                 -- stick fixed at pre doublet trim position
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, doublet_srv_trim1, DOUBLET_TIME * (OBSERVATION_TIME - 1))
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, doublet_srv_trim2, DOUBLET_TIME * (OBSERVATION_TIME - 1))         
@@ -276,7 +273,7 @@ function doublet()
             elseif now > start_time + (DOUBLET_TIME * OBSERVATION_TIME) then
                 -- wait for RC input channel to go low
                 end_time = now
-                gcs:send_text(6, "DOUBLET OBSERVATION FINISHED")
+                gcs:send_text(6, "RAMP DOUBLET OBSERVATION FINISHED")
             else
                 gcs:send_text(6, "this should not be reached")
             end
@@ -304,7 +301,7 @@ function doublet()
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, down, math.floor(DOUBLET_TIME * 1/6) + 100)
             elseif (now > (start_time + DOUBLET_TIME)) and (now < (start_time + DOUBLET_TIME + callback_time)) then
                 -- notify GCS
-                gcs:send_text(6, "DOUBLET FINISHED")
+                gcs:send_text(6, "RAMP DOUBLET FINISHED")
                 -- stick fixed at pre doublet trim position
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, doublet_srv_trim1, DOUBLET_TIME * (OBSERVATION_TIME - 1))
             elseif (now > start_time + DOUBLET_TIME + callback_time) and (now < start_time + (DOUBLET_TIME * OBSERVATION_TIME)) then
@@ -312,7 +309,7 @@ function doublet()
             elseif now > start_time + (DOUBLET_TIME * OBSERVATION_TIME) then
                 -- wait for RC input channel to go low
                 end_time = now
-                gcs:send_text(6, "DOUBLET OBSERVATION FINISHED")
+                gcs:send_text(6, "RAMP DOUBLET OBSERVATION FINISHED")
             else
                 gcs:send_text(6, "this should not be reached")
             end
@@ -357,5 +354,5 @@ function doublet()
     return doublet, callback_time
 end
 
-gcs:send_text(6, "doublet.lua is running")
+gcs:send_text(6, "ramp.lua is running")
 return doublet(), 1000
