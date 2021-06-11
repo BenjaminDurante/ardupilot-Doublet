@@ -18,7 +18,7 @@ local DOUBLET_FUNCTION1 = 77 -- which control surface (SERVOx_FUNCTION) number w
 local DOUBLET_FUNCTION2 = 78 -- which control surface (SERVOx_FUNCTION) number will have a doublet happen
 
 -- Doublet parameters
-local DOUBLET_TIME = 1000 -- period of doublet signal in ms
+local DOUBLET_TIME = 2000 -- period of doublet signal in ms
 local OBSERVATION_TIME = 5 -- multiple of the doublet time to hold other deflections constant
 local DOUBLET_MAGNITUDE = -1 -- defined out of 45 deg used for set_output_scaled
 local DOUBLET_MAGNITUDE_ELEVATOR = 12 -- elevator deflection magnitude defined out of 45 deg used for set_output_scaled
@@ -79,7 +79,7 @@ end
 function doublet()
     local callback_time = 100
     if arming:is_armed() == true and rc:get_pwm(DOUBLET_ACTION_CHANNEL) > 1700 and end_time ==-1 and rc:get_pwm(MANEUVER_ACTION_CHANNEL) > 1300 and rc:get_pwm(MANEUVER_ACTION_CHANNEL) < 1700 then
-        callback_time = DOUBLET_TIME / 10
+        callback_time = 10 -- setting refresh time faster to ensure a smoother ramp
         -- start a quick doublet based on some math/logic
         now = millis()
         if start_time == -1 then
@@ -133,7 +133,7 @@ function doublet()
             end
             
             -- notify the gcs that we are starting a doublet
-            gcs:send_text(6, "STARTING RAMP DOUBLET" .. DOUBLET_FUNCTION1)
+            gcs:send_text(6, "STARTING RAMP DOUBLET " .. DOUBLET_FUNCTION1)
 
             
             -- get info about the doublet channel
