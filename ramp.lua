@@ -18,13 +18,13 @@ local DOUBLET_FUNCTION1 = 77 -- which control surface (SERVOx_FUNCTION) number w
 local DOUBLET_FUNCTION2 = 78 -- which control surface (SERVOx_FUNCTION) number will have a doublet happen
 
 -- Doublet parameters
-local DOUBLET_TIME = 2000 -- period of doublet signal in ms
-local OBSERVATION_TIME = 5 -- multiple of the doublet time to hold other deflections constant
+local DOUBLET_TIME = 1000 -- period of doublet signal in ms
+local OBSERVATION_TIME = 3 -- multiple of the doublet time to hold other deflections constant
 local DOUBLET_MAGNITUDE = -1 -- defined out of 45 deg used for set_output_scaled
-local DOUBLET_MAGNITUDE_ELEVATOR = 12 -- elevator deflection magnitude defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_ELEVATOR = 10 -- elevator deflection magnitude defined out of 45 deg used for set_output_scaled
 local DOUBLET_MAGNITUDE_AILERON = 5 -- aileron deflection magnitude defined out of 45 deg used for set_output_scaled
-local DOUBLET_MAGNITUDE_RUDDER = 15 -- rudder deflection magnitude defined out of 45 deg used for set_output_scaled
-local DOUBLET_MAGNITUDE_THROTTLE = 5 -- throttle deflection magnitude defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_RUDDER = 10 -- rudder deflection magnitude defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_THROTTLE = 10 -- throttle deflection magnitude defined out of 45 deg used for set_output_scaled
 
 -- flight mode numbers for plane https://mavlink.io/en/messages/ardupilotmega.html
 local MODE_MANUAL = 0
@@ -199,8 +199,8 @@ function doublet()
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, up, math.floor(DOUBLET_TIME * 1/6) + 100)
                 ramp_start_time = tonumber(tostring(now))
            elseif now < start_time + (DOUBLET_TIME * 3/6) then
-                down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / 45) * (1 - (tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 1/6) - ramp_start_time)))
-                up = doublet_srv_trim2 + math.floor((doublet_srv_max2 - doublet_srv_trim2) * (DOUBLET_MAGNITUDE / 45) * opposite_elevon_motion * (1 - (tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 1/6) - ramp_start_time)))
+                down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / 45) * (1 - (tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 3/6) - ramp_start_time)))
+                up = doublet_srv_trim2 + math.floor((doublet_srv_max2 - doublet_srv_trim2) * (DOUBLET_MAGNITUDE / 45) * opposite_elevon_motion * (1 - (tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 3/6) - ramp_start_time)))
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, down, math.floor(DOUBLET_TIME * 1/6) + 100)
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, up, math.floor(DOUBLET_TIME * 1/6) + 100)
             elseif now < start_time + (DOUBLET_TIME * 4/6) then
@@ -214,9 +214,9 @@ function doublet()
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, math.floor(DOUBLET_TIME * 1/6) + 100)
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, math.floor(DOUBLET_TIME * 1/6) + 100)
                 ramp_start_time = tonumber(tostring(now))
-            elseif now < start_time + (DOUBLET_TIME * 6/6) then 
+            elseif now < start_time + (DOUBLET_TIME * 6/6) then
                 up = doublet_srv_trim1 + math.floor((doublet_srv_max1 - doublet_srv_trim1) * (DOUBLET_MAGNITUDE / 45) * (1 - ((tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 6/6) - ramp_start_time))))
-                down = doublet_srv_trim2 - math.floor((doublet_srv_trim2 - doublet_srv_min2) * (DOUBLET_MAGNITUDE / 45) * (1 - ((tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 3/6) - ramp_start_time))))
+                down = doublet_srv_trim2 - math.floor((doublet_srv_trim2 - doublet_srv_min2) * (DOUBLET_MAGNITUDE / 45) * (1 - ((tonumber(tostring(now)) - ramp_start_time) / (tonumber(tostring(start_time)) + (DOUBLET_TIME * 6/6) - ramp_start_time))))
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, math.floor(DOUBLET_TIME * 1/6) + 100)
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, math.floor(DOUBLET_TIME * 1/6) + 100)
             elseif (now > (start_time + DOUBLET_TIME)) and (now < (start_time + DOUBLET_TIME + callback_time)) then
