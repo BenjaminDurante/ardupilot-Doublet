@@ -286,5 +286,5 @@ function doublet()
     return doublet, callback_time
 end
 
-gcs:send_text(6, "doublet.lua is running")
+gcs:send_text(6, "step.lua is running")
 return doublet(), 1000
