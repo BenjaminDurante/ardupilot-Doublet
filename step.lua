@@ -20,12 +20,12 @@ local DOUBLET_FUNCTION2 = 78 -- which control surface (SERVOx_FUNCTION) number w
 -- Doublet parameters
 local DOUBLET_TIME = 500 -- period of doublet signal in ms
 -- local DOUBLET_TIME = 10000 -- testing time to measure angular deflection
-local OBSERVATION_TIME = 1 -- multiple of the doublet time to hold other deflections constant
+local OBSERVATION_TIME = 5 -- multiple of the doublet time to hold other deflections constant
 local DOUBLET_MAGNITUDE = -1 -- defined out of 45 deg used for set_output_scaled
-local DOUBLET_MAGNITUDE_ELEVATOR = 12 -- elevator deflection magnitude defined out of 45 deg used for set_output_scaled
-local DOUBLET_MAGNITUDE_AILERON = 5 -- aileron deflection magnitude defined out of 45 deg used for set_output_scaled
-local DOUBLET_MAGNITUDE_RUDDER = 15 -- rudder deflection magnitude defined out of 45 deg used for set_output_scaled
-local DOUBLET_MAGNITUDE_THROTTLE = 5 -- throttle deflection magnitude defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_ELEVATOR = 10 -- elevator deflection magnitude defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_AILERON = 8 -- aileron deflection magnitude defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_RUDDER = 10 -- rudder deflection magnitude defined out of 45 deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_THROTTLE = 10 -- throttle deflection magnitude defined out of 45 deg used for set_output_scaled
 
 -- flight mode numbers for plane https://mavlink.io/en/messages/ardupilotmega.html
 local MODE_MANUAL = 0
