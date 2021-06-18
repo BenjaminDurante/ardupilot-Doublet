@@ -12,6 +12,11 @@
 
 -- This code has been modified for the elevon aircrafts used in the lab
 
+-- UAV selection
+-- 1: SKYWALKER
+-- 2: SIMBA
+local UAV_AIRFRAME = 2;
+
 local MANEUVER_ACTION_CHANNEL = 9 -- RCIN channel to start a doublet when high (low) or ramp (medium) or step (high)
 local DOUBLET_ACTION_CHANNEL = 6 -- RCIN channel to start a doublet when high (>1700)
 local DOUBLET_CHOICE_CHANNEL1 = 7 -- RCIN channel to choose elevator (low) or rudder (medium) or alternative channel (high)
@@ -19,15 +24,16 @@ local DOUBLET_CHOICE_CHANNEL2 = 5 -- RCIN channel to choose aileron (low) or thr
 local DOUBLET_FUNCTION1 = 77 -- which control surface (SERVOx_FUNCTION) number will have a doublet happen
 local DOUBLET_FUNCTION2 = 78 -- which control surface (SERVOx_FUNCTION) number will have a doublet happen
 
+
 -- Doublet parameters
-local DOUBLET_TIME = 500 -- period of doublet signal in ms
--- local DOUBLET_TIME = 10000 -- testing time to measure angular deflection
-local OBSERVATION_TIME = 5 -- multiple of the doublet time to hold other deflections constant
-local DOUBLET_MAGNITUDE = -1 -- defined out of 45 deg used for set_output_scaled
-local DOUBLET_MAGNITUDE_ELEVATOR = 10 -- elevator deflection magnitude defined out of 45 deg used for set_output_scaled
-local DOUBLET_MAGNITUDE_AILERON = 8 -- aileron deflection magnitude defined out of 45 deg used for set_output_scaled
-local DOUBLET_MAGNITUDE_RUDDER = 10 -- rudder deflection magnitude defined out of 45 deg used for set_output_scaled
-local DOUBLET_MAGNITUDE_THROTTLE = 10 -- throttle deflection magnitude defined out of 45 deg used for set_output_scaled
+-- local DOUBLET_TIME = 500 -- period of doublet signal in ms
+local DOUBLET_TIME = 10000 -- testing time to measure angular deflection
+local OBSERVATION_TIME = 1--5 -- multiple of the doublet time to hold other deflections constant
+local DOUBLET_MAGNITUDE = -1 -- defined out of set range
+local DOUBLET_MAGNITUDE_ELEVATOR = 10 -- elevator deflection magnitude defined out of ACTUATION_RANGE_LIMIT_ELEVONS deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_AILERON = 8 -- aileron deflection magnitude defined out of ACTUATION_RANGE_LIMIT_ELEVONS deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_RUDDER = 5 -- rudder deflection magnitude defined out of ACTUATION_RANGE_LIMIT_RUDDER deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_THROTTLE = 10 -- throttle deflection magnitude defined out of 100%
 
 -- flight mode numbers for plane https://mavlink.io/en/messages/ardupilotmega.html
 local MODE_MANUAL = 0
@@ -40,6 +46,20 @@ local K_THROTTLE = 70
 local K_RUDDER = 21
 local K_ELEVONLEFT = 77
 local K_ELEVONRIGHT = 78
+
+local ACTUATION_RANGE_LIMIT_ELEVONS = 45 -- range that the servo can actuate (degrees)
+local ACTUATION_RANGE_LIMIT_RUDDER = 45 -- range that the servo can actuate (degrees)
+local ACTUATION_RANGE_LIMIT_THROTTLE = 100 -- range percentage
+
+-- Since elevons are mixed such that an elevator deflection is 1/2 the total travel and an aileron deflection is halved
+-- Since the rudder is not mixed its total travel must be divided in half
+if UAV_AIRFRAME == 1 then
+    ACTUATION_RANGE_LIMIT_ELEVONS = 28
+    K_RUDDER = 10 -- As SKYWALKER has no rudder, setting this value to a camera trigger so the program doesn't brick
+elseif UAV_AIRFRAME == 2 then
+    ACTUATION_RANGE_LIMIT_ELEVONS = 50
+    ACTUATION_RANGE_LIMIT_RUDDER = 20 / 2 -- Since the rudder is not mixed its total travel must be divided in half
+end
 
 -- elevon direction setup
 local opposite_elevon_motion_master = 1; -- 1 or -1 to correct for elevator/aileron mix-up
@@ -79,6 +99,7 @@ function retry_set_mode(mode) -- sets flight modes demanded from the main code
 end
 
 function doublet()
+    gcs:send_text(6, "heart beat")
     local callback_time = 100
     if arming:is_armed() == true and rc:get_pwm(DOUBLET_ACTION_CHANNEL) > 1700 and end_time ==-1 and rc:get_pwm(MANEUVER_ACTION_CHANNEL) < 1300 then
         callback_time = DOUBLET_TIME / 10
@@ -189,13 +210,13 @@ function doublet()
             -- elevator or aileron doublet, setting up the other elevon
             -- split time evenly between high and low signal
             if now < start_time + (DOUBLET_TIME / 2) then
-                down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / 45))
-                up = doublet_srv_trim2 + (math.floor((doublet_srv_max2 - doublet_srv_trim2) * (DOUBLET_MAGNITUDE / 45)) * opposite_elevon_motion)
+                down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / ACTUATION_RANGE_LIMIT_ELEVONS))
+                up = doublet_srv_trim2 + (math.floor((doublet_srv_max2 - doublet_srv_trim2) * (DOUBLET_MAGNITUDE / ACTUATION_RANGE_LIMIT_ELEVONS)) * opposite_elevon_motion)
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, down, DOUBLET_TIME / 2 + 100)
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, up, DOUBLET_TIME / 2 + 100)
             elseif now < start_time + DOUBLET_TIME then
-                up = doublet_srv_trim1 + math.floor((doublet_srv_max1 - doublet_srv_trim1) * (DOUBLET_MAGNITUDE / 45))
-                down = doublet_srv_trim2 - (math.floor((doublet_srv_trim2 - doublet_srv_min2) * (DOUBLET_MAGNITUDE / 45)) * opposite_elevon_motion)
+                up = doublet_srv_trim1 + math.floor((doublet_srv_max1 - doublet_srv_trim1) * (DOUBLET_MAGNITUDE / ACTUATION_RANGE_LIMIT_ELEVONS))
+                down = doublet_srv_trim2 - (math.floor((doublet_srv_trim2 - doublet_srv_min2) * (DOUBLET_MAGNITUDE / ACTUATION_RANGE_LIMIT_ELEVONS)) * opposite_elevon_motion)
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, DOUBLET_TIME / 2 + 100)
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, DOUBLET_TIME / 2 + 100)               
             elseif (now > start_time + DOUBLET_TIME) and (now < start_time + DOUBLET_TIME + callback_time) then
@@ -216,11 +237,11 @@ function doublet()
         elseif ACTIVE_RUDDER == true then
             -- split time evenly between high and low signal
             if now < start_time + (DOUBLET_TIME / 2) then
-                down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / 45))
+                down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / ACTUATION_RANGE_LIMIT_RUDDER))
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, down, DOUBLET_TIME / 2 + 100)
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, down, DOUBLET_TIME / 2 + 100)
             elseif now < start_time + DOUBLET_TIME then
-                up = doublet_srv_trim1 + math.floor((doublet_srv_max1 - doublet_srv_trim1) * (DOUBLET_MAGNITUDE / 45))
+                up = doublet_srv_trim1 + math.floor((doublet_srv_max1 - doublet_srv_trim1) * (DOUBLET_MAGNITUDE / ACTUATION_RANGE_LIMIT_RUDDER))
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, DOUBLET_TIME / 2 + 100)
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan2, up, DOUBLET_TIME / 2 + 100)
             elseif (now > (start_time + DOUBLET_TIME)) and (now < (start_time + DOUBLET_TIME + callback_time)) then
@@ -241,10 +262,10 @@ function doublet()
         else
             -- split time evenly between high and low signal
             if now < start_time + (DOUBLET_TIME / 2) then
-                down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / 45))
+                down = doublet_srv_trim1 - math.floor((doublet_srv_trim1 - doublet_srv_min1) * (DOUBLET_MAGNITUDE / ACTUATION_RANGE_LIMIT_THROTTLE))
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, down, DOUBLET_TIME / 2 + 100)
             elseif now < start_time + DOUBLET_TIME then
-                up = doublet_srv_trim1 + math.floor((doublet_srv_max1 - doublet_srv_trim1) * (DOUBLET_MAGNITUDE / 45))
+                up = doublet_srv_trim1 + math.floor((doublet_srv_max1 - doublet_srv_trim1) * (DOUBLET_MAGNITUDE / ACTUATION_RANGE_LIMIT_THROTTLE))
                 SRV_Channels:set_output_pwm_chan_timeout(doublet_srv_chan1, up, DOUBLET_TIME / 2 + 100)
             elseif (now > (start_time + DOUBLET_TIME)) and (now < (start_time + DOUBLET_TIME + callback_time)) then
                 -- notify GCS
