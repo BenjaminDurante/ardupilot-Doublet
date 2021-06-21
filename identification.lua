@@ -25,11 +25,11 @@ local DOUBLET_FUNCTION1 = 77 -- which control surface (SERVOx_FUNCTION) number w
 local DOUBLET_FUNCTION2 = 78 -- which control surface (SERVOx_FUNCTION) number will have a doublet happen
 
 -- Doublet parameters
--- local DOUBLET_TIME_ORIGINAL = 500 -- period of doublet signal in ms
-local DOUBLET_TIME_ORIGINAL = 10000 -- testing time to measure angular deflection
-local OBSERVATION_TIME = 1--5 -- multiple of the doublet time to hold other deflections constant
+local DOUBLET_TIME_ORIGINAL = 500 -- period of doublet signal in ms
+-- local DOUBLET_TIME_ORIGINAL = 10000 -- testing time to measure angular deflection
+local OBSERVATION_TIME = 3 -- multiple of the doublet time to hold other deflections constant
 local DOUBLET_MAGNITUDE = -1 -- defined out of set range
-local DOUBLET_MAGNITUDE_ELEVATOR = 10 -- elevator deflection magnitude defined out of ACTUATION_RANGE_LIMIT_ELEVONS deg used for set_output_scaled
+local DOUBLET_MAGNITUDE_ELEVATOR = 5 -- elevator deflection magnitude defined out of ACTUATION_RANGE_LIMIT_ELEVONS deg used for set_output_scaled
 local DOUBLET_MAGNITUDE_AILERON = 5 -- aileron deflection magnitude defined out of ACTUATION_RANGE_LIMIT_ELEVONS deg used for set_output_scaled
 local DOUBLET_MAGNITUDE_RUDDER = 5 -- rudder deflection magnitude defined out of ACTUATION_RANGE_LIMIT_RUDDER deg used for set_output_scaled
 local DOUBLET_MAGNITUDE_THROTTLE = 10 -- throttle deflection magnitude defined out of 100%
@@ -99,7 +99,7 @@ function retry_set_mode(mode) -- sets flight modes demanded from the main code
 end
 
 function identification()
-    gcs:send_text(6, "heart beat") -- test to ensure code is running
+    -- gcs:send_text(6, "heart beat") -- test to ensure code is running
     local DOUBLET_TIME = DOUBLET_TIME_ORIGINAL
     local callback_time = 100
     if arming:is_armed() == true and rc:get_pwm(DOUBLET_ACTION_CHANNEL) > 1700 and end_time ==-1 then
